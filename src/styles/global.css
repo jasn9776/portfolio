@@ -1221,6 +1221,7 @@ section {
 }
 .prose img {
   width: 100%;
+  height: auto;
   border: 1px solid var(--rule-strong);
   margin: 2rem 0 .5rem;
   display: block;
@@ -1241,3 +1242,16 @@ section {
 }
 .prose strong { font-weight: 600; }
 .prose em { font-style: italic; }
+
+/* image caption: italic-only paragraph immediately after an image paragraph */
+.prose p:has(img) + p > em:only-child {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  display: block;
+  margin-top: -.75rem;
+  margin-bottom: 2rem;
+}

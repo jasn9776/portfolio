@@ -40,3 +40,11 @@ Methylation contributed surprisingly little on its own but consistently improved
 ## Status
 
 Preprint in preparation. Code will be released on GitHub on submission.
+
+ <figure>                                                                                                                                   
+    <img src="./diagram.png" alt="Description of image" />                                                                                                     
+    <figcaption>Fig. 1 — Caption text here</figcaption>   
+</figure>       
+
+![Description of image](./diagram.png)
+ *Fig. 1 — Diagram of the AI devleopment method*
