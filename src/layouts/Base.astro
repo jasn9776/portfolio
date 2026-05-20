@@ -1,0 +1,329 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?:        string;
+  description?:  string;
+  showProgress?: boolean;
+}
+
+const {
+  title       = 'Jason Soo — Bioinformatics',
+  description = 'Jason Soo. Bioinformatician. Single-cell genomics, multi-modal machine learning, and long-read sequencing.',
+  showProgress = true,
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+
+<!-- BACKGROUND CANVAS — scroll-driven UMAP visualisation -->
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+<!-- FLOATING NAV -->
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a href={`${base}#hero`} class="nav-mark">Jason <em>Soo</em></a>
+    <div class="nav-links">
+      <a href={`${base}#about`}>About</a>
+      <a href={`${base}#experience`}>Experience</a>
+      <a href={`${base}#work`}>Work</a>
+      <a href={`${base}#resume`}>CV</a>
+      <a href={`${base}#contact`}>Contact</a>
+    </div>
+  </div>
+</nav>
+
+<!-- RIGHT-EDGE PROGRESS INDICATOR -->
+{showProgress && (
+  <aside class="progress" aria-hidden="true">
+    <a href={`${base}#hero`}       class="progress-dot" data-target="hero">      <span class="label">Index</span></a>
+    <a href={`${base}#about`}      class="progress-dot" data-target="about">     <span class="label">About</span></a>
+    <a href={`${base}#experience`} class="progress-dot" data-target="experience"><span class="label">Experience</span></a>
+    <a href={`${base}#work`}       class="progress-dot" data-target="work">      <span class="label">Work</span></a>
+    <a href={`${base}#resume`}     class="progress-dot" data-target="resume">    <span class="label">CV</span></a>
+    <a href={`${base}#contact`}    class="progress-dot" data-target="contact">   <span class="label">Contact</span></a>
+  </aside>
+)}
+
+<main>
+  <slot />
+</main>
+
+<!-- CONTACT / FOOTER -->
+<section id="contact">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 05</span> Correspondence</div>
+
+    <div class="contact-grid">
+      <h2 class="reveal">If something here <em>resonates</em>, write to me.</h2>
+
+      <div class="contact-meta">
+        <div class="contact-row reveal" data-delay="1">
+          <div class="lab">Email</div>
+          <a href="mailto:jason.soo@example.com">jason.soo@example.com</a>
+        </div>
+        <div class="contact-row reveal" data-delay="2">
+          <div class="lab">GitHub</div>
+          <a href="https://github.com/jasn9776" target="_blank" rel="noopener">github.com/jasn9776</a>
+        </div>
+        <div class="contact-row reveal" data-delay="3">
+          <div class="lab">LinkedIn</div>
+          <a href="https://www.linkedin.com/in/jason-soo" target="_blank" rel="noopener">linkedin.com/in/jason-soo</a>
+        </div>
+        <div class="contact-row reveal" data-delay="4">
+          <div class="lab">ORCID</div>
+          <span class="val">add when published</span>
+        </div>
+        <div class="contact-row reveal" data-delay="5">
+          <div class="lab">Based</div>
+          <span class="val">Sydney, Australia · open to Sydney-based contract</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>
+        <strong>© Jason Soo · 2026.</strong>
+        Set in Fraunces, Newsreader &amp; JetBrains&nbsp;Mono.
+      </div>
+      <div class="colophon">
+        Catalogue v1.0. Built with Astro. Add a post: drop a markdown file in
+        <span style="font-family:var(--mono); color:var(--paper)">src/content/posts/</span>
+        and push.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     SCRIPTS
+     ========================================================= -->
+
+<script>
+// — reveal-on-scroll —
+(function setupReveals() {
+  const els = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        en.target.classList.add('in');
+        io.unobserve(en.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+  els.forEach(el => io.observe(el));
+})();
+</script>
+
+<script>
+// — progress dots —
+(function setupProgress() {
+  const dots = document.querySelectorAll('.progress-dot');
+  if (!dots.length) return;
+  const sections = Array.from(dots).map(d => document.getElementById((d as HTMLElement).dataset.target!));
+  function update() {
+    const y = window.scrollY + window.innerHeight * 0.35;
+    let active = 0;
+    sections.forEach((s, i) => { if (s && s.offsetTop <= y) active = i; });
+    dots.forEach((d, i) => d.classList.toggle('active', i === active));
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  update();
+})();
+</script>
+
+<script>
+// — scroll-driven canvas: single-cell point cloud —
+(function setupCanvas() {
+  const canvas = document.getElementById('bg-canvas') as HTMLCanvasElement;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d')!;
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let W: number, H: number;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const palette: [number,number,number][] = [
+    [181, 58,  36],   // accent red
+    [122, 30,  14],   // accent deep
+    [74,  93,  58],   // moss
+    [24,  21,  19],   // ink
+    [216, 128, 109],  // accent soft
+    [138, 129, 116],  // ink faint
+  ];
+
+  const N = Math.max(140, Math.min(260, Math.floor(window.innerWidth * window.innerHeight / 8500)));
+
+  function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
+
+  interface Pt { x: number; y: number; r: number; a: number; }
+
+  function buildStages(): Pt[][] {
+    const stages: Pt[][] = [];
+
+    // 0 — drifting nebula
+    stages.push(Array.from({ length: N }, () => ({
+      x: rand(0, 1), y: rand(0, 1), r: rand(1.2, 3.4), a: rand(0.35, 0.7),
+    })));
+
+    // 1 — UMAP clusters
+    const centres: [number,number][] = [
+      [0.22, 0.30], [0.68, 0.22], [0.45, 0.55], [0.78, 0.70], [0.18, 0.78],
+    ];
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const c = centres[i % centres.length];
+      const gx = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
+      const gy = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
+      return {
+        x: Math.max(0.02, Math.min(0.98, c[0] + gx * 0.14)),
+        y: Math.max(0.02, Math.min(0.98, c[1] + gy * 0.14)),
+        r: rand(1.4, 3), a: rand(0.5, 0.85),
+      };
+    }));
+
+    // 2 — timeline / sequencing reads
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const band = i % 6;
+      return {
+        x: rand(0.05, 0.95),
+        y: 0.25 + band * 0.085 + rand(-0.02, 0.02),
+        r: rand(1.2, 2.6), a: rand(0.45, 0.8),
+      };
+    }));
+
+    // 3 — grid lattice
+    const cols = 14, rows = 8;
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const c = i % cols, r = Math.floor(i / cols) % rows;
+      return {
+        x: 0.06 + (c / (cols - 1)) * 0.88 + rand(-0.012, 0.012),
+        y: 0.12 + (r / (rows - 1)) * 0.76 + rand(-0.012, 0.012),
+        r: rand(1.4, 2.6), a: rand(0.4, 0.7),
+      };
+    }));
+
+    // 4 — converging beam
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const t = i / N;
+      const angle = Math.PI * 1.25 + (t - 0.5) * 0.6;
+      const dist  = 0.05 + Math.pow(1 - t, 1.4) * 0.6;
+      return {
+        x: 0.5 + Math.cos(angle) * dist,
+        y: 0.5 + Math.sin(angle) * dist,
+        r: rand(1.2, 2.6), a: rand(0.45, 0.8),
+      };
+    }));
+
+    return stages;
+  }
+
+  let STAGES = buildStages();
+  window.addEventListener('resize', () => { STAGES = buildStages(); });
+
+  const points = Array.from({ length: N }, (_, i) => ({
+    x: STAGES[0][i].x, y: STAGES[0][i].y,
+    r: STAGES[0][i].r, a: STAGES[0][i].a,
+    vx: rand(-0.0002, 0.0002), vy: rand(-0.0002, 0.0002),
+    ci: i % palette.length,
+    phase: Math.random() * Math.PI * 2,
+  }));
+
+  let progressTarget = 0;
+  let progress = 0;
+  function updateProgress() {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  const ease = (t: number) => t * t * (3 - 2 * t);
+
+  let t = 0;
+  function draw() {
+    t += 1;
+    progress += (progressTarget - progress) * 0.06;
+    const seg = progress * (STAGES.length - 1);
+    const idx = Math.min(Math.floor(seg), STAGES.length - 2);
+    const frac = ease(seg - idx);
+
+    ctx.clearRect(0, 0, W, H);
+
+    for (let i = 0; i < points.length; i++) {
+      const A = STAGES[idx][i];
+      const B = STAGES[idx + 1][i];
+      const tx = A.x + (B.x - A.x) * frac;
+      const ty = A.y + (B.y - A.y) * frac;
+      const tr = A.r + (B.r - A.r) * frac;
+      const ta = A.a + (B.a - A.a) * frac;
+
+      const p = points[i];
+      const drift = 0.0024;
+      const driftX = Math.sin(t * 0.003 + p.phase) * drift;
+      const driftY = Math.cos(t * 0.0026 + p.phase * 1.3) * drift;
+
+      p.x += ((tx + driftX) - p.x) * 0.04;
+      p.y += ((ty + driftY) - p.y) * 0.04;
+      p.r += (tr - p.r) * 0.05;
+      p.a += (ta - p.a) * 0.05;
+
+      const px = p.x * W;
+      const py = p.y * H;
+      const col = palette[p.ci];
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${p.a * 0.15})`;
+      ctx.arc(px, py, p.r * 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${p.a})`;
+      ctx.arc(px, py, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    draw();
+  } else {
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const col = palette[p.ci];
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${p.a * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,345 @@
+---
+import { getCollection } from 'astro:content';
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+
+// experiences sorted by slug (01→05 preserves display order)
+const experiences = (await getCollection('experience')).sort((a, b) =>
+  a.slug.localeCompare(b.slug)
+);
+
+// posts sorted newest first; hide drafts in production
+const posts = (await getCollection('posts', ({ data }) =>
+  import.meta.env.PROD ? !data.draft : true
+)).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+// render experience bodies
+const experienceData = await Promise.all(
+  experiences.map(async (exp) => {
+    const { Content } = await exp.render();
+    return { data: exp.data, Content };
+  })
+);
+
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+---
+
+<Base>
+
+<!-- =====================================================
+     HERO
+     ===================================================== -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-meta">
+      <div>
+        <div>Catalogue №&nbsp;001 / Edition <span id="year">2026</span></div>
+        <div style="margin-top:.3rem">Sydney · NSW · Australia (<em style="font-family:var(--serif);font-style:italic;text-transform:none;letter-spacing:0">−33.87°, 151.21°</em>)</div>
+      </div>
+      <div class="right">
+        <div class="blink">Status · Available for contract, May–Sept</div>
+        <div style="margin-top:.3rem">Inbound · PhD candidate · Sept 2026</div>
+      </div>
+    </div>
+
+    <h1 class="hero-title" id="hero-title">
+      <span class="word">Jason</span>
+      <span class="word ital">Soo.</span>
+      <span class="last">A <em class="ital">specimen</em> in&nbsp;progress.</span>
+    </h1>
+
+    <div class="hero-deck">
+      <p>
+        Bioinformatician working at the intersection of <em>single&#8209;cell&nbsp;genomics</em>,
+        multi&#8209;modal machine learning, and <span class="accent">long-read sequencing</span>.
+        First&#8209;class honours at UNSW, ~1.5 years in computational biology,
+        and on the way to a PhD with Martin Smith on long&#8209;read isoform
+        characterisation in cancer.
+      </p>
+      <div class="scroll-cue">
+        <span>scroll · §01</span>
+        <span class="arrow"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     ABOUT
+     ===================================================== -->
+<section id="about">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 01</span> About the candidate</div>
+
+    <div class="about-grid">
+      <div class="reveal">
+        <div class="portrait-frame" id="portrait">
+          <img
+            src={`${base}photo.jpg`}
+            alt="Portrait of Jason Soo"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+          />
+          <div class="placeholder" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+            </svg>
+            <div>Drop a 4&nbsp;×&nbsp;5 portrait at <strong>public/photo.jpg</strong></div>
+            <div style="opacity:.5">Specimen photograph pending</div>
+          </div>
+        </div>
+        <div class="portrait-caption">
+          <span>fig. 01 · J. Soo</span>
+          <span>plate i</span>
+        </div>
+      </div>
+
+      <div class="about-text">
+        <h2 class="reveal">Working from the <em>cell up</em>.</h2>
+
+        <p class="drop reveal" data-delay="1">
+          I'm a UNSW Computer Science / Bioinformatics graduate (first&#8209;class honours, 86) building a career
+          around computational methods for cancer biology. My recent work has spanned spatial transcriptomics
+          in mouse brain, multi&#8209;modal machine learning for hepatocellular carcinoma recurrence, and
+          statistical modelling of the human microbiome.
+        </p>
+
+        <p class="reveal" data-delay="2">
+          In September I begin a PhD with <em>Martin Smith</em> at the Ramaciotti Centre, working on
+          long-read isoform-level quantification in cancer and immuno-oncology. Until then, I'm available
+          for a focused 3–4 month contract — ideally somewhere whose pipelines and methods build the skills
+          I'll need on day one of the PhD.
+        </p>
+
+        <p class="reveal" data-delay="3">
+          I care about reproducible, well-documented analysis and about choosing the simplest tool that
+          honestly answers the biological question. I also write — about methods I'm replicating,
+          tools I'm learning, and the small surprises that show up in the data.
+        </p>
+
+        <div class="skills reveal" data-delay="4">
+          <div class="cat">Languages</div>
+          <div class="skill-tags">
+            <span class="skill-tag">Python</span>
+            <span class="skill-tag">R</span>
+            <span class="skill-tag">Bash</span>
+            <span class="skill-tag">SQL</span>
+          </div>
+          <div class="cat">Genomics</div>
+          <div class="skill-tags">
+            <span class="skill-tag">ScanPy</span>
+            <span class="skill-tag">scverse</span>
+            <span class="skill-tag">Seurat</span>
+            <span class="skill-tag">cNMF</span>
+            <span class="skill-tag">MapMyCells</span>
+            <span class="skill-tag">MERSCOPE</span>
+            <span class="skill-tag">CellTypist</span>
+          </div>
+          <div class="cat">ML / Stats</div>
+          <div class="skill-tags">
+            <span class="skill-tag">scikit-learn</span>
+            <span class="skill-tag">PyTorch</span>
+            <span class="skill-tag">pandas</span>
+            <span class="skill-tag">NumPy</span>
+            <span class="skill-tag">multi-modal integration</span>
+          </div>
+          <div class="cat">Pipelines</div>
+          <div class="skill-tags">
+            <span class="skill-tag">Snakemake</span>
+            <span class="skill-tag">Nextflow*</span>
+            <span class="skill-tag">SLURM*</span>
+            <span class="skill-tag">Docker</span>
+            <span class="skill-tag">Git</span>
+          </div>
+          <div class="cat">In progress</div>
+          <div class="skill-tags">
+            <span class="skill-tag">HPC / Katana</span>
+            <span class="skill-tag">ONT long-read</span>
+            <span class="skill-tag">isoform quantification</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     EXPERIENCE
+     ===================================================== -->
+<section id="experience">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 02</span> Experience · chronological assembly</div>
+
+    <div class="experience-header reveal">
+      <h2>From the <em>microbiome</em><br/>to long&#8209;read.</h2>
+      <div class="descriptor">
+        Three positions, two&nbsp;years.<br/>
+        Read left to right →<br/>
+        track aligned to time.
+      </div>
+    </div>
+
+    <!-- genome-browser style timeline track -->
+    <div class="timeline-track reveal">
+      <div class="timeline-bar">
+        {experiences.map((exp) => (
+          <div
+            class={`timeline-segment${exp.data.future ? ' future' : ''}`}
+            data-year={exp.data.year}
+          />
+        ))}
+      </div>
+    </div>
+
+    <!-- entry list -->
+    <div class="entries">
+      {experienceData.map(({ data, Content }, i) => (
+        <article class="entry reveal" data-delay={String(Math.min(i, 4))}>
+          <div class="entry-meta">
+            <span class="entry-marker">{data.marker}</span>
+            <span class="date">{data.date}</span>
+            <span class="duration">{data.duration}</span>
+          </div>
+          <div class="entry-body">
+            <h3 class="entry-title">{data.role}</h3>
+            <div class="entry-org">{data.org}</div>
+            <div class="entry-desc"><Content /></div>
+          </div>
+          <div class="entry-tags">
+            {data.tags.map(t => <span class="entry-tag">{t}</span>)}
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     WORK
+     ===================================================== -->
+<section id="work">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 03</span> Selected work · projects &amp; writing</div>
+
+    <div class="work-header reveal">
+      <h2>Things <em>I've made</em><br/>and things I'm thinking about.</h2>
+      <div class="work-filters" id="work-filters" role="tablist">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="project">Projects</button>
+        <button class="filter-btn" data-filter="writing">Writing</button>
+        <button class="filter-btn" data-filter="paper">Papers</button>
+      </div>
+    </div>
+
+    <div class="work-grid" id="work-grid">
+      {posts.map((post, i) => {
+        const { data } = post;
+        const readHref = data.external ?? `${base}posts/${post.slug}/`;
+        const isExternal = !!data.external;
+        const cardClass = `work-card reveal${data.size === 'feature' ? ' feature' : data.size === 'wide' ? ' wide' : ''}`;
+
+        return (
+          <article
+            class={cardClass}
+            data-kind={data.kind}
+            data-delay={String(Math.min(i, 4))}
+          >
+            <div class="card-head">
+              <div class="card-id">
+                <span class="kind">{data.kind.toUpperCase()}</span> · {data.id}
+              </div>
+              <div class="card-date">{data.displayDate ?? fmtDate(data.date)}</div>
+            </div>
+
+            {data.size === 'feature' && (
+              <div class="card-visual">
+                {data.coverImage && (
+                  <Image
+                    src={data.coverImage}
+                    alt={data.coverCaption ?? data.title}
+                    widths={[400, 800]}
+                    sizes="(max-width: 700px) 100vw, 600px"
+                  />
+                )}
+              </div>
+            )}
+
+            <h3 class="card-title">{data.title}</h3>
+            <p class="card-excerpt" set:html={data.excerpt} />
+
+            <div class="card-foot">
+              <div class="card-tags">
+                {data.tags.map(t => <span class="card-tag">{t}</span>)}
+              </div>
+              <div class="card-links">
+                {data.githubUrl && (
+                  <a href={data.githubUrl} target="_blank" rel="noopener">↗ GitHub</a>
+                )}
+                <a
+                  href={readHref}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener' : undefined}
+                >→ Read</a>
+                <span class="card-arrow">↗</span>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     RESUME / CV
+     ===================================================== -->
+<section id="resume">
+  <div class="container">
+    <div class="section-label reveal" style="justify-content:center">
+      <span class="num">§ 04</span> Curriculum vitae
+    </div>
+    <div class="resume-block">
+      <h2 class="reveal">The full <em>read</em>.</h2>
+      <p class="reveal" data-delay="1">
+        A one-page academic CV with my degrees, positions, methods stack, preprint, and referees.
+        Updated quarterly. PDF, ~120&nbsp;KB.
+      </p>
+      <a href={`${base}resume.pdf`} download class="resume-cta reveal" data-delay="2">
+        <span>Download CV</span>
+        <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14"/>
+        </svg>
+      </a>
+      <div class="reveal" data-delay="3" style="font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); margin-top:.5rem">
+        last revised — <span id="cv-date">May 2026</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</Base>
+
+<script>
+// — work filters —
+(function setupFilters() {
+  const btns  = document.querySelectorAll('#work-filters .filter-btn');
+  const cards = document.querySelectorAll('#work-grid .work-card');
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const f = (b as HTMLElement).dataset.filter!;
+    cards.forEach(c => {
+      (c as HTMLElement).style.display =
+        (f === 'all' || (c as HTMLElement).dataset.kind === f) ? '' : 'none';
+    });
+  }));
+})();
+
+// — year stamp —
+const yr = document.getElementById('year');
+if (yr) yr.textContent = String(new Date().getFullYear());
+</script>

@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jason Soo — Bioinformatics</title>
+<meta name="description" content="Jason Soo. Bioinformatician. Single-cell genomics, multi-modal machine learning, and long-read sequencing." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap" rel="stylesheet" />
+
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     ============================================================ */
+  :root {
+    --paper:        #F1EADB;
+    --paper-warm:   #E9E0CD;
+    --paper-deep:   #DDD2BB;
+    --ink:          #181513;
+    --ink-soft:     #4B453D;
+    --ink-faint:    #8A8174;
+    --rule:         #1815131A;
+    --rule-strong:  #1815134D;
+    --accent:       #B53A24;     /* a deep eosin / cellular-stain red */
+    --accent-soft:  #D8806D;
+    --accent-deep:  #7A1E0E;
+    --moss:         #4A5D3A;     /* secondary accent — fixative green */
+
+    --serif:    "Fraunces", "Newsreader", Georgia, serif;
+    --read:     "Newsreader", Georgia, serif;
+    --mono:     "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --container: min(1400px, 92vw);
+    --gutter:    clamp(1.25rem, 2.5vw, 2.5rem);
+
+    --t-fast:    180ms;
+    --t:         360ms;
+    --t-slow:    720ms;
+    --ease:      cubic-bezier(.22,.61,.36,1);
+  }
+
+  /* ============================================================
+     RESET / BASE
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--read);
+    font-size: 17px;
+    line-height: 1.55;
+    font-feature-settings: "ss01", "kern", "liga";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* paper grain — subtle, layered */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: .35;
+    background-image:
+      radial-gradient(circle at 20% 30%, #00000008 0, transparent 50%),
+      radial-gradient(circle at 80% 70%, #00000008 0, transparent 50%);
+    mix-blend-mode: multiply;
+  }
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    opacity: .04;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  ::selection { background: var(--accent); color: var(--paper); }
+
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  img { max-width: 100%; display: block; }
+
+  /* ============================================================
+     CANVAS — the scroll-driven specimen visualisation
+     ============================================================ */
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+    opacity: .85;
+  }
+
+  /* ============================================================
+     LAYOUT PRIMITIVES
+     ============================================================ */
+  .container { width: var(--container); margin: 0 auto; position: relative; z-index: 3; }
+
+  section {
+    position: relative;
+    z-index: 3;
+    padding: clamp(5rem, 10vh, 8rem) 0;
+  }
+
+  .rule { height: 1px; background: var(--rule-strong); width: 100%; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: baseline;
+    gap: .8em;
+    margin-bottom: 2rem;
+  }
+  .section-label::before {
+    content: "";
+    height: 1px; width: 1.6em;
+    background: currentColor;
+    transform: translateY(-.3em);
+  }
+  .section-label .num {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ============================================================
+     NAVIGATION — floating, minimal
+     ============================================================ */
+  .nav {
+    position: fixed;
+    top: 1.25rem;
+    left: 0; right: 0;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .nav-inner {
+    width: var(--container);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: auto;
+  }
+  .nav-mark {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 9, "wght" 500, "SOFT" 50;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+    background: var(--paper);
+    padding: .5rem 1rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
+    background-color: color-mix(in srgb, var(--paper) 80%, transparent);
+  }
+  .nav-mark em {
+    font-style: italic;
+    font-variation-settings: "opsz" 9, "wght" 400, "SOFT" 100;
+    color: var(--accent);
+  }
+  .nav-links {
+    display: flex;
+    gap: .25rem;
+    background: var(--paper);
+    padding: .35rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
+    background-color: color-mix(in srgb, var(--paper) 80%, transparent);
+  }
+  .nav-links a {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: .45rem .9rem;
+    border-radius: 999px;
+    transition: all var(--t-fast) var(--ease);
+    color: var(--ink-soft);
+  }
+  .nav-links a:hover { background: var(--ink); color: var(--paper); }
+  @media (max-width: 720px) {
+    .nav-links { display: none; }
+  }
+
+  /* progress indicator on the right edge */
+  .progress {
+    position: fixed;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    pointer-events: auto;
+  }
+  .progress-dot {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    text-transform: uppercase;
+    transition: color var(--t-fast) var(--ease);
+  }
+  .progress-dot::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+    transition: all var(--t-fast) var(--ease);
+  }
+  .progress-dot.active { color: var(--accent); }
+  .progress-dot.active::before { background: var(--accent); transform: scale(1.6); }
+  .progress-dot .label { opacity: 0; transform: translateX(8px); transition: all var(--t) var(--ease); }
+  .progress-dot:hover .label,
+  .progress-dot.active .label { opacity: 1; transform: translateX(0); }
+  @media (max-width: 900px) { .progress { display: none; } }
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  #hero {
+    min-height: 100vh;
+    padding-top: clamp(6rem, 14vh, 10rem);
+    padding-bottom: 4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .hero-meta {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: start;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .hero-meta .right { text-align: right; }
+  .hero-meta .blink::after {
+    content: "█";
+    color: var(--accent);
+    margin-left: .3em;
+    animation: blink 1.05s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .hero-title {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 144, "wght" 380, "SOFT" 100;
+    font-size: clamp(4rem, 14.5vw, 14rem);
+    line-height: 0.86;
+    letter-spacing: -0.045em;
+    margin-top: 2.5rem;
+    color: var(--ink);
+  }
+  .hero-title .ital {
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "wght" 300, "SOFT" 100;
+    color: var(--accent);
+  }
+  .hero-title .last {
+    display: block;
+    text-indent: 12vw;
+  }
+  @media (max-width: 720px) {
+    .hero-title .last { text-indent: 6vw; }
+  }
+
+  .hero-deck {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 5vw, 6rem);
+    margin-top: clamp(2rem, 5vh, 4rem);
+    align-items: end;
+  }
+  @media (max-width: 800px) {
+    .hero-deck { grid-template-columns: 1fr; }
+  }
+  .hero-deck p {
+    font-family: var(--read);
+    font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+    line-height: 1.45;
+    color: var(--ink);
+    font-weight: 400;
+  }
+  .hero-deck p em {
+    font-style: italic;
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 36, "wght" 400, "SOFT" 100;
+  }
+  .hero-deck p .accent { color: var(--accent); font-style: italic; font-family: var(--serif); }
+
+  .hero-deck .scroll-cue {
+    justify-self: end;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: .5rem;
+  }
+  .scroll-cue .arrow {
+    display: block;
+    width: 1px;
+    height: 38px;
+    background: var(--ink-soft);
+    position: relative;
+    animation: slideDown 1.8s ease-in-out infinite;
+  }
+  .scroll-cue .arrow::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 50%;
+    width: 7px; height: 7px;
+    border-right: 1px solid var(--ink-soft);
+    border-bottom: 1px solid var(--ink-soft);
+    transform: translateX(-50%) rotate(45deg) translate(2px,-1px);
+  }
+  @keyframes slideDown {
+    0%, 100% { transform: translateY(0); opacity: 1; }
+    50%      { transform: translateY(8px); opacity: .4; }
+  }
+
+  /* ============================================================
+     ABOUT
+     ============================================================ */
+  #about {
+    background: linear-gradient(180deg, transparent, var(--paper-warm) 20%, var(--paper-warm) 80%, transparent);
+  }
+
+  .about-grid {
+    display: grid;
+    grid-template-columns: 5fr 7fr;
+    gap: clamp(2rem, 6vw, 6rem);
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .about-grid { grid-template-columns: 1fr; }
+  }
+
+  .portrait-frame {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    background: var(--paper-deep);
+    border: 1px solid var(--rule-strong);
+    overflow: hidden;
+    transition: transform var(--t-slow) var(--ease);
+  }
+  .portrait-frame:hover { transform: translate(-4px, -4px); }
+  .portrait-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 60%, color-mix(in srgb, var(--accent) 12%, transparent));
+    pointer-events: none;
+    z-index: 2;
+  }
+  .portrait-frame img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: contrast(1.05) saturate(.9);
+    transition: filter var(--t) var(--ease);
+  }
+  .portrait-frame:hover img { filter: contrast(1.1) saturate(1); }
+  .portrait-frame .placeholder {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    gap: 1rem;
+    background: repeating-linear-gradient(
+      45deg,
+      var(--paper-deep),
+      var(--paper-deep) 16px,
+      var(--paper-warm) 16px,
+      var(--paper-warm) 17px
+    );
+  }
+  .portrait-frame .placeholder svg { width: 32px; opacity: .35; }
+
+  .portrait-caption {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: .75rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .about-text {
+    padding-top: 1.5rem;
+  }
+  .about-text h2 {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 96, "wght" 380, "SOFT" 100;
+    font-size: clamp(2.2rem, 4.5vw, 4.5rem);
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin-bottom: 2rem;
+  }
+  .about-text h2 em {
+    font-style: italic;
+    color: var(--accent);
+    font-variation-settings: "opsz" 96, "wght" 320, "SOFT" 100;
+  }
+  .about-text p {
+    font-family: var(--read);
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+    color: var(--ink);
+  }
+  .about-text p em { font-style: italic; color: var(--accent-deep); }
+  .about-text .drop::first-letter {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 144, "wght" 500, "SOFT" 50;
+    font-size: 4.5em;
+    float: left;
+    line-height: .85;
+    padding-right: .12em;
+    margin-top: .05em;
+    color: var(--accent);
+  }
+
+  /* skills grid */
+  .skills {
+    margin-top: 3rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.5rem 2rem;
+    border-top: 1px solid var(--rule-strong);
+    padding-top: 2rem;
+  }
+  .skills .cat {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding-top: .25rem;
+    white-space: nowrap;
+  }
+  .skill-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+  }
+  .skill-tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: .35rem .7rem;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    border-radius: 4px;
+    transition: all var(--t-fast) var(--ease);
+    color: var(--ink);
+  }
+  .skill-tag:hover {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    transform: translateY(-2px);
+  }
+
+  /* ============================================================
+     EXPERIENCE — vertical timeline with horizontal track strip
+     ============================================================ */
+  #experience .container { max-width: var(--container); }
+
+  .experience-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: end;
+    margin-bottom: 4rem;
+  }
+  .experience-header h2 {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 144, "wght" 350, "SOFT" 100;
+    font-size: clamp(2.5rem, 6vw, 6rem);
+    line-height: .95;
+    letter-spacing: -0.035em;
+  }
+  .experience-header h2 em {
+    font-style: italic;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144, "wght" 300, "SOFT" 100;
+  }
+  .experience-header .descriptor {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: right;
+    max-width: 22ch;
+    line-height: 1.6;
+  }
+
+  /* genome browser track styling */
+  .timeline-track {
+    position: relative;
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 1px solid var(--rule-strong);
+    padding: 1rem 0;
+    margin-bottom: 3rem;
+    background: var(--paper-warm);
+  }
+  .timeline-track::before {
+    content: "track 1 ▸ chronological assembly";
+    position: absolute;
+    top: -1.2rem;
+    left: 0;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .timeline-bar {
+    position: relative;
+    height: 14px;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .timeline-segment {
+    flex: 1;
+    background: var(--accent);
+    opacity: 0.85;
+    position: relative;
+    transition: opacity var(--t-fast) var(--ease);
+  }
+  .timeline-segment[data-active="true"] { opacity: 1; }
+  .timeline-segment:hover { opacity: 1; }
+  .timeline-segment::after {
+    content: attr(data-year);
+    position: absolute;
+    top: calc(100% + .5rem);
+    left: 0;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+  }
+  .timeline-segment.future {
+    background: repeating-linear-gradient(45deg, var(--accent) 0 4px, transparent 4px 8px);
+    opacity: 0.4;
+  }
+
+  /* entry rows */
+  .entries {
+    display: flex;
+    flex-direction: column;
+  }
+  .entry {
+    display: grid;
+    grid-template-columns: 1fr 4fr 3fr;
+    gap: clamp(1rem, 3vw, 3rem);
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--rule-strong);
+    align-items: start;
+    position: relative;
+    transition: background var(--t) var(--ease);
+  }
+  .entry:first-child { border-top: 1px solid var(--rule-strong); }
+  .entry:hover { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 5%, transparent), transparent); }
+  .entry:hover .entry-marker { color: var(--accent); }
+  .entry:hover .entry-title { color: var(--accent); }
+
+  @media (max-width: 800px) {
+    .entry { grid-template-columns: 1fr; gap: 1rem; }
+  }
+
+  .entry-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .entry-marker {
+    color: var(--ink);
+    font-weight: 700;
+    transition: color var(--t-fast) var(--ease);
+  }
+  .entry-meta .date { font-weight: 500; }
+  .entry-meta .duration { color: var(--ink-faint); font-size: 10px; }
+
+  .entry-body h3.entry-title {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 36, "wght" 450, "SOFT" 50;
+    font-size: clamp(1.3rem, 2vw, 1.7rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    margin-bottom: .4rem;
+    transition: color var(--t-fast) var(--ease);
+  }
+  .entry-body .entry-org {
+    font-family: var(--read);
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--ink-soft);
+    margin-bottom: 1rem;
+  }
+  .entry-body .entry-desc {
+    font-family: var(--read);
+    font-size: .98rem;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  .entry-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    align-items: flex-start;
+  }
+  .entry-tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: .25rem .55rem;
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    border-radius: 3px;
+    transition: all var(--t-fast) var(--ease);
+  }
+  .entry-tag:hover {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* ============================================================
+     WORK — projects + writing as a unified grid
+     ============================================================ */
+  #work {
+    background: linear-gradient(180deg, transparent, var(--paper-warm) 10%, var(--paper-warm) 90%, transparent);
+  }
+
+  .work-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: end;
+    margin-bottom: 3rem;
+  }
+  .work-header h2 {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 144, "wght" 350, "SOFT" 100;
+    font-size: clamp(2.5rem, 6vw, 6rem);
+    line-height: .95;
+    letter-spacing: -0.035em;
+  }
+  .work-header h2 em {
+    font-style: italic;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144, "wght" 300, "SOFT" 100;
+  }
+  .work-filters {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: .5rem 1rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink-soft);
+    transition: all var(--t-fast) var(--ease);
+  }
+  .filter-btn:hover { background: var(--paper); color: var(--ink); }
+  .filter-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .work-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 1.25rem;
+  }
+
+  .work-card {
+    grid-column: span 4;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 1.75rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: relative;
+    transition: all var(--t) var(--ease);
+    min-height: 320px;
+  }
+  .work-card.feature { grid-column: span 8; min-height: 380px; }
+  .work-card.wide { grid-column: span 6; }
+
+  @media (max-width: 1000px) {
+    .work-card, .work-card.feature, .work-card.wide { grid-column: span 6; }
+  }
+  @media (max-width: 700px) {
+    .work-card, .work-card.feature, .work-card.wide { grid-column: span 12; }
+  }
+
+  .work-card:hover {
+    transform: translate(-3px, -3px);
+    border-color: var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .work-card:hover .card-arrow {
+    transform: translate(4px, -4px);
+    color: var(--accent);
+  }
+
+  .work-card .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 1rem;
+    border-bottom: 1px solid var(--rule-strong);
+    padding-bottom: 1rem;
+  }
+  .card-id {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .card-id .kind { color: var(--accent); }
+  .card-date {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .card-title {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 48, "wght" 450, "SOFT" 50;
+    font-size: 1.55rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .work-card.feature .card-title { font-size: 2rem; }
+
+  .card-excerpt {
+    font-family: var(--read);
+    font-size: .98rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    flex: 1;
+  }
+  .card-excerpt em { font-style: italic; color: var(--accent-deep); }
+
+  .card-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+  }
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+  }
+  .card-tag {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: .2rem .5rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+  }
+  .card-links {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+  }
+  .card-links a {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    transition: color var(--t-fast) var(--ease);
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+  }
+  .card-links a:hover { color: var(--accent); }
+  .card-arrow {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--ink);
+    transition: all var(--t) var(--ease);
+  }
+
+  /* feature card variant: with visual */
+  .work-card.feature .card-visual {
+    flex: 1;
+    background: linear-gradient(135deg, var(--paper-deep), var(--paper-warm));
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 140px;
+  }
+
+  /* ============================================================
+     RESUME CTA
+     ============================================================ */
+  #resume {
+    text-align: center;
+    padding: clamp(6rem, 12vh, 10rem) 0;
+  }
+  .resume-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+  .resume-block h2 {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 144, "wght" 400, "SOFT" 100;
+    font-size: clamp(2.5rem, 7vw, 6.5rem);
+    line-height: .95;
+    letter-spacing: -0.04em;
+    max-width: 14ch;
+  }
+  .resume-block h2 em {
+    font-style: italic;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144, "wght" 320, "SOFT" 100;
+  }
+  .resume-block p {
+    max-width: 50ch;
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+  .resume-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.2rem 2.2rem;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: 1px solid var(--ink);
+    transition: all var(--t) var(--ease);
+    position: relative;
+    overflow: hidden;
+  }
+  .resume-cta::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: translateY(100%);
+    transition: transform var(--t) var(--ease);
+    z-index: 0;
+  }
+  .resume-cta > * { position: relative; z-index: 1; }
+  .resume-cta:hover::before { transform: translateY(0); }
+  .resume-cta:hover { border-color: var(--accent); }
+
+  .resume-cta .download-icon {
+    width: 14px; height: 14px;
+    transition: transform var(--t) var(--ease);
+  }
+  .resume-cta:hover .download-icon { transform: translateY(2px); }
+
+  /* ============================================================
+     CONTACT / FOOTER
+     ============================================================ */
+  #contact {
+    background: var(--ink);
+    color: var(--paper);
+    padding: clamp(5rem, 10vh, 8rem) 0 3rem;
+    position: relative;
+    z-index: 4;
+  }
+  #contact::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    opacity: .05;
+    pointer-events: none;
+  }
+  #contact .section-label { color: var(--paper); opacity: .6; }
+  #contact .section-label .num { color: var(--accent-soft); }
+
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    margin-bottom: 5rem;
+    position: relative;
+  }
+  @media (max-width: 800px) { .contact-grid { grid-template-columns: 1fr; gap: 3rem; } }
+
+  .contact-grid h2 {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 144, "wght" 380, "SOFT" 100;
+    font-size: clamp(2.5rem, 6vw, 5.5rem);
+    line-height: .95;
+    letter-spacing: -0.035em;
+  }
+  .contact-grid h2 em {
+    font-style: italic;
+    color: var(--accent-soft);
+    font-variation-settings: "opsz" 144, "wght" 320, "SOFT" 100;
+  }
+  .contact-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .contact-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--paper) 15%, transparent);
+    align-items: baseline;
+  }
+  .contact-row .lab {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--paper) 50%, transparent);
+  }
+  .contact-row a, .contact-row .val {
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 36, "wght" 420, "SOFT" 50;
+    font-size: 1.4rem;
+    line-height: 1.2;
+    color: var(--paper);
+    transition: color var(--t-fast) var(--ease);
+    word-break: break-word;
+  }
+  .contact-row a:hover { color: var(--accent-soft); }
+
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 2rem;
+    padding-top: 3rem;
+    border-top: 1px solid color-mix(in srgb, var(--paper) 15%, transparent);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--paper) 50%, transparent);
+  }
+  .footer-bottom strong { color: var(--paper); font-weight: 500; }
+  .colophon {
+    max-width: 50ch;
+    text-transform: none;
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+    font-size: 11px;
+  }
+
+  /* ============================================================
+     REVEAL ANIMATIONS
+     ============================================================ */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 1s var(--ease), transform 1s var(--ease);
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal[data-delay="1"] { transition-delay: 80ms; }
+  .reveal[data-delay="2"] { transition-delay: 160ms; }
+  .reveal[data-delay="3"] { transition-delay: 240ms; }
+  .reveal[data-delay="4"] { transition-delay: 320ms; }
+  .reveal[data-delay="5"] { transition-delay: 400ms; }
+
+  /* hero entrance */
+  .hero-title .word {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(60px);
+    animation: rise 1.2s var(--ease) forwards;
+  }
+  .hero-title .word:nth-child(1) { animation-delay: 200ms; }
+  .hero-title .word:nth-child(2) { animation-delay: 380ms; }
+  @keyframes rise {
+    to { opacity: 1; transform: none; }
+  }
+
+  /* reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .hero-title .word { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- =====================================================
+     BACKGROUND CANVAS — scroll-driven UMAP visualisation
+     ===================================================== -->
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+<!-- =====================================================
+     FLOATING NAV
+     ===================================================== -->
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a href="#hero" class="nav-mark">Jason <em>Soo</em></a>
+    <div class="nav-links">
+      <a href="#about">About</a>
+      <a href="#experience">Experience</a>
+      <a href="#work">Work</a>
+      <a href="#resume">CV</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<!-- =====================================================
+     RIGHT-EDGE PROGRESS INDICATOR
+     ===================================================== -->
+<aside class="progress" aria-hidden="true">
+  <a href="#hero"       class="progress-dot" data-target="hero"><span class="label">Index</span></a>
+  <a href="#about"      class="progress-dot" data-target="about"><span class="label">About</span></a>
+  <a href="#experience" class="progress-dot" data-target="experience"><span class="label">Experience</span></a>
+  <a href="#work"       class="progress-dot" data-target="work"><span class="label">Work</span></a>
+  <a href="#resume"     class="progress-dot" data-target="resume"><span class="label">CV</span></a>
+  <a href="#contact"    class="progress-dot" data-target="contact"><span class="label">Contact</span></a>
+</aside>
+
+<main>
+
+<!-- =====================================================
+     HERO
+     ===================================================== -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-meta">
+      <div>
+        <div>Catalogue №&nbsp;001 / Edition <span id="year">2026</span></div>
+        <div style="margin-top:.3rem">Sydney · NSW · Australia (<em style="font-family:var(--serif);font-style:italic;text-transform:none;letter-spacing:0">−33.87°, 151.21°</em>)</div>
+      </div>
+      <div class="right">
+        <div class="blink">Status · Available for contract, May–Sept</div>
+        <div style="margin-top:.3rem">Inbound · PhD candidate · Sept 2026</div>
+      </div>
+    </div>
+
+    <h1 class="hero-title" id="hero-title">
+      <span class="word">Jason</span>
+      <span class="word ital">Soo.</span>
+      <span class="last">A <em class="ital">specimen</em> in&nbsp;progress.</span>
+    </h1>
+
+    <div class="hero-deck">
+      <p>
+        Bioinformatician working at the intersection of <em>single&#8209;cell&nbsp;genomics</em>,
+        multi&#8209;modal machine learning, and <span class="accent">long-read sequencing</span>.
+        First&#8209;class honours at UNSW, ~1.5 years in computational biology,
+        and on the way to a PhD with Martin Smith on long&#8209;read isoform
+        characterisation in cancer.
+      </p>
+      <div class="scroll-cue">
+        <span>scroll · §01</span>
+        <span class="arrow"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     ABOUT
+     ===================================================== -->
+<section id="about">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 01</span> About the candidate</div>
+
+    <div class="about-grid">
+      <div class="reveal">
+        <div class="portrait-frame" id="portrait">
+          <!-- Replace src below with your professional photo at /photo.jpg -->
+          <img src="photo.jpg" alt="Portrait of Jason Soo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="placeholder" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+            <div>Drop a 4&nbsp;×&nbsp;5 portrait at <strong>/photo.jpg</strong></div>
+            <div style="opacity:.5">Specimen photograph pending</div>
+          </div>
+        </div>
+        <div class="portrait-caption">
+          <span>fig. 01 · J. Soo</span>
+          <span>plate i</span>
+        </div>
+      </div>
+
+      <div class="about-text">
+        <h2 class="reveal">Working from the <em>cell up</em>.</h2>
+
+        <p class="drop reveal" data-delay="1">
+          I'm a UNSW Computer Science / Bioinformatics graduate (first&#8209;class honours, 86) building a career
+          around computational methods for cancer biology. My recent work has spanned spatial transcriptomics
+          in mouse brain, multi&#8209;modal machine learning for hepatocellular carcinoma recurrence, and
+          statistical modelling of the human microbiome.
+        </p>
+
+        <p class="reveal" data-delay="2">
+          In September I begin a PhD with <em>Martin Smith</em> at the Ramaciotti Centre, working on
+          long-read isoform-level quantification in cancer and immuno-oncology. Until then, I'm available
+          for a focused 3–4 month contract — ideally somewhere whose pipelines and methods build the skills
+          I'll need on day one of the PhD.
+        </p>
+
+        <p class="reveal" data-delay="3">
+          I care about reproducible, well-documented analysis and about choosing the simplest tool that
+          honestly answers the biological question. I also write — about methods I'm replicating,
+          tools I'm learning, and the small surprises that show up in the data.
+        </p>
+
+        <!-- skills -->
+        <div class="skills reveal" data-delay="4">
+          <div class="cat">Languages</div>
+          <div class="skill-tags">
+            <span class="skill-tag">Python</span>
+            <span class="skill-tag">R</span>
+            <span class="skill-tag">Bash</span>
+            <span class="skill-tag">SQL</span>
+          </div>
+          <div class="cat">Genomics</div>
+          <div class="skill-tags">
+            <span class="skill-tag">ScanPy</span>
+            <span class="skill-tag">scverse</span>
+            <span class="skill-tag">Seurat</span>
+            <span class="skill-tag">cNMF</span>
+            <span class="skill-tag">MapMyCells</span>
+            <span class="skill-tag">MERSCOPE</span>
+            <span class="skill-tag">CellTypist</span>
+          </div>
+          <div class="cat">ML / Stats</div>
+          <div class="skill-tags">
+            <span class="skill-tag">scikit-learn</span>
+            <span class="skill-tag">PyTorch</span>
+            <span class="skill-tag">pandas</span>
+            <span class="skill-tag">NumPy</span>
+            <span class="skill-tag">multi-modal integration</span>
+          </div>
+          <div class="cat">Pipelines</div>
+          <div class="skill-tags">
+            <span class="skill-tag">Snakemake</span>
+            <span class="skill-tag">Nextflow*</span>
+            <span class="skill-tag">SLURM*</span>
+            <span class="skill-tag">Docker</span>
+            <span class="skill-tag">Git</span>
+          </div>
+          <div class="cat">In progress</div>
+          <div class="skill-tags">
+            <span class="skill-tag">HPC / Katana</span>
+            <span class="skill-tag">ONT long-read</span>
+            <span class="skill-tag">isoform quantification</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     EXPERIENCE — timeline + genome-browser track
+     ===================================================== -->
+<section id="experience">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 02</span> Experience · chronological assembly</div>
+
+    <div class="experience-header reveal">
+      <h2>From the <em>microbiome</em><br/>to long&#8209;read.</h2>
+      <div class="descriptor">
+        Three positions, two&nbsp;years.<br/>
+        Read left to right →<br/>
+        track aligned to time.
+      </div>
+    </div>
+
+    <!-- genome-browser style timeline track -->
+    <div class="timeline-track reveal">
+      <div class="timeline-bar" id="timeline-bar">
+        <!-- segments injected by JS -->
+      </div>
+    </div>
+
+    <!-- entries list -->
+    <div class="entries" id="entries">
+      <!-- entries injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     WORK — projects + writing in one grid
+     ===================================================== -->
+<section id="work">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 03</span> Selected work · projects &amp; writing</div>
+
+    <div class="work-header reveal">
+      <h2>Things <em>I've made</em><br/>and things I'm thinking about.</h2>
+      <div class="work-filters" id="work-filters" role="tablist">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="project">Projects</button>
+        <button class="filter-btn" data-filter="writing">Writing</button>
+        <button class="filter-btn" data-filter="paper">Papers</button>
+      </div>
+    </div>
+
+    <div class="work-grid" id="work-grid">
+      <!-- cards injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     RESUME / CV
+     ===================================================== -->
+<section id="resume">
+  <div class="container">
+    <div class="section-label reveal" style="justify-content:center"><span class="num">§ 04</span> Curriculum vitae</div>
+    <div class="resume-block">
+      <h2 class="reveal">The full <em>read</em>.</h2>
+      <p class="reveal" data-delay="1">
+        A one-page academic CV with my degrees, positions, methods stack, preprint, and referees.
+        Updated quarterly. PDF, ~120&nbsp;KB.
+      </p>
+      <a href="resume.pdf" download class="resume-cta reveal" data-delay="2">
+        <span>Download CV</span>
+        <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 4v12m0 0l-4-4m4 4l4-4M5 20h14"/>
+        </svg>
+      </a>
+      <div class="reveal" data-delay="3" style="font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); margin-top:.5rem">
+        last revised — <span id="cv-date">May 2026</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================
+     CONTACT / FOOTER
+     ===================================================== -->
+<section id="contact">
+  <div class="container">
+    <div class="section-label reveal"><span class="num">§ 05</span> Correspondence</div>
+
+    <div class="contact-grid">
+      <h2 class="reveal">If something here <em>resonates</em>, write to me.</h2>
+
+      <div class="contact-meta">
+        <div class="contact-row reveal" data-delay="1">
+          <div class="lab">Email</div>
+          <a href="mailto:jason.soo@example.com">jason.soo@example.com</a>
+        </div>
+        <div class="contact-row reveal" data-delay="2">
+          <div class="lab">GitHub</div>
+          <a href="https://github.com/jasn9776" target="_blank" rel="noopener">github.com/jasn9776</a>
+        </div>
+        <div class="contact-row reveal" data-delay="3">
+          <div class="lab">LinkedIn</div>
+          <a href="https://www.linkedin.com/in/jason-soo" target="_blank" rel="noopener">linkedin.com/in/jason-soo</a>
+        </div>
+        <div class="contact-row reveal" data-delay="4">
+          <div class="lab">ORCID</div>
+          <span class="val">add when published</span>
+        </div>
+        <div class="contact-row reveal" data-delay="5">
+          <div class="lab">Based</div>
+          <span class="val">Sydney, Australia · open to Sydney-based contract</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>
+        <strong>© Jason Soo · 2026.</strong>
+        Set in Fraunces, Newsreader &amp; JetBrains&nbsp;Mono.
+      </div>
+      <div class="colophon">
+        Catalogue v1.0. This site is one HTML file. Edit content in
+        <span style="font-family:var(--mono); color:var(--paper)">const&nbsp;CONTENT&nbsp;=&nbsp;{…}</span>
+        at the top of the script — no build step, no CMS, no database.
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- =====================================================
+     SCRIPT
+     ===================================================== -->
+<script>
+/* ============================================================
+   ▶ CONTENT  ·  edit this object to update the site
+   ============================================================
+   The only thing you need to touch to add experiences, projects,
+   or writing. Save the file and refresh. That's it.
+   ============================================================ */
+const CONTENT = {
+
+  // — — Experience — — — — — — — — — — — — — — — — — — — — —
+  experiences: [
+    {
+      marker:   "I",
+      role:     "PhD Candidate — Computational Biology",
+      org:      "Smith Lab · Ramaciotti Centre for Genomics, UNSW",
+      date:     "Sep 2026 — incoming",
+      duration: "4 years (est.)",
+      year:     "2026—",
+      future:   true,
+      desc:     "Long-read isoform-level quantification applied to cancer and immuno-oncology. Methods development for Oxford Nanopore and PacBio direct-RNA workflows.",
+      tags:     ["long-read", "ONT", "isoforms", "cancer", "method dev"],
+    },
+    {
+      marker:   "II",
+      role:     "Honours Thesis — Multi-modal ML for Cancer",
+      org:      "Vafaee Lab · School of Biotech &amp; Biomolecular Sciences, UNSW",
+      date:     "2025",
+      duration: "12 months · First-class · 86",
+      year:     "2025",
+      desc:     "Built a multi-modal machine-learning framework integrating five data modalities (clinical, transcriptomic, methylation, mutation, miRNA) to predict hepatocellular carcinoma recurrence. One preprint in preparation.",
+      tags:     ["multi-modal", "HCC", "scikit-learn", "feature integration", "preprint"],
+    },
+    {
+      marker:   "III",
+      role:     "Research Assistant — Spatial Transcriptomics",
+      org:      "McNally Lab · School of Psychology, UNSW",
+      date:     "2024 — 2025",
+      duration: "9 months",
+      year:     "2024—25",
+      desc:     "Single-cell and spatial transcriptomic analysis of MERSCOPE data in mouse brain. Clustering with consensus non-negative matrix factorisation (cNMF), cell-type annotation via MapMyCells, and downstream comparison against the Allen Brain Atlas.",
+      tags:     ["MERSCOPE", "spatial", "cNMF", "MapMyCells", "scanpy"],
+    },
+    {
+      marker:   "IV",
+      role:     "Research Assistant — Statistical Modelling",
+      org:      "Microbiome Research Centre · St George Hospital / UNSW",
+      date:     "2023 — 2024",
+      duration: "9 months",
+      year:     "2023—24",
+      desc:     "Machine-learning and statistical modelling on human microbiome data: feature engineering from 16S amplicon sequencing, model selection for clinical prediction, and reproducible analysis pipelines.",
+      tags:     ["microbiome", "16S", "scikit-learn", "modelling", "pipelines"],
+    },
+    {
+      marker:   "V",
+      role:     "BSc Computer Science &amp; Bioinformatics",
+      org:      "University of New South Wales · Sydney",
+      date:     "2020 — 2023",
+      duration: "Undergraduate · WAM 86",
+      year:     "2020—23",
+      desc:     "Computer science core with a bioinformatics major. Coursework across algorithms, machine learning, statistics, molecular biology, and genomics.",
+      tags:     ["UNSW", "first-class", "CS core", "bioinformatics major"],
+    },
+  ],
+
+  // — — Work · projects, writing, papers — — — — — — — — — —
+  // kind:     "project" | "writing" | "paper"
+  // size:     "default" | "feature" | "wide"
+  // githubUrl: optional
+  // readUrl:   optional (blog post, paper link, etc.)
+  work: [
+    {
+      id:        "SPC-04",
+      kind:      "project",
+      size:      "feature",
+      title:     "Multi-modal integration for HCC recurrence prediction",
+      date:      "Honours · 2025",
+      excerpt:   "Five data modalities — clinical, transcriptomic, methylation, mutation, miRNA — fused into a single recurrence-risk model for hepatocellular carcinoma. Preprint in preparation; benchmarked against unimodal baselines on TCGA-LIHC and a curated validation cohort.",
+      tags:      ["honours", "HCC", "multi-modal", "scikit-learn"],
+      githubUrl: "https://github.com/jasn9776",
+      readUrl:   "#",
+    },
+    {
+      id:        "SPC-03",
+      kind:      "project",
+      size:      "default",
+      title:     "MERSCOPE spatial atlas: mouse VTA",
+      date:      "2024–25",
+      excerpt:   "Single-cell and spatial analysis of MERSCOPE imaging of the mouse ventral tegmental area. cNMF clustering, MapMyCells annotation, comparison to Allen Brain Atlas reference taxonomies.",
+      tags:      ["spatial", "MERSCOPE", "cNMF"],
+      githubUrl: "https://github.com/jasn9776",
+    },
+    {
+      id:        "SPC-02",
+      kind:      "project",
+      size:      "default",
+      title:     "Microbiome 16S → clinical outcome modelling",
+      date:      "2023–24",
+      excerpt:   "ML and statistical modelling on a Sydney clinical cohort of 16S amplicon sequencing data, with feature engineering for downstream classification.",
+      tags:      ["microbiome", "16S", "modelling"],
+      githubUrl: "https://github.com/jasn9776",
+    },
+    {
+      id:        "WRT-02",
+      kind:      "writing",
+      size:      "wide",
+      title:     "Replicating Strati et al. on CAR-T cytopenia, in scanpy",
+      date:      "April 2026",
+      excerpt:   "A short walk-through of replicating a 2024 single-cell CAR-T paper end-to-end in scanpy — what reproduced cleanly, what didn't, and what I learned about benchmark design in single-cell.",
+      tags:      ["scanpy", "CAR-T", "reproduction"],
+      readUrl:   "#",
+    },
+    {
+      id:        "WRT-01",
+      kind:      "writing",
+      size:      "default",
+      title:     "Bifurcation vs archetypal trajectories — a primer",
+      date:      "March 2026",
+      excerpt:   "Why these two ways of thinking about cell-fate continua are not the same thing, and which methods belong to which family.",
+      tags:      ["trajectory", "single-cell", "methods"],
+      readUrl:   "#",
+    },
+    {
+      id:        "SPC-01",
+      kind:      "project",
+      size:      "default",
+      title:     "Kakurasu solver — a side quest",
+      date:      "2025",
+      excerpt:   "A constraint-propagation solver for the Kakurasu logic puzzle, written as an excuse to think carefully about exact-cover and bitmask tricks. Wrote up the experience of using Opus 4.7 for the implementation.",
+      tags:      ["solver", "side project", "SAT"],
+      githubUrl: "https://github.com/jasn9776",
+      readUrl:   "#",
+    },
+    {
+      id:        "PAP-01",
+      kind:      "paper",
+      size:      "default",
+      title:     "Multi-modal ML for HCC recurrence (preprint)",
+      date:      "2026 — in prep",
+      excerpt:   "First-author preprint from the honours work. Status: drafting. bioRxiv DOI to be added.",
+      tags:      ["first author", "preprint", "HCC"],
+    },
+  ],
+};
+
+/* ============================================================
+   ▼ rendering
+   ============================================================ */
+
+// — year stamp —
+document.getElementById("year").textContent = new Date().getFullYear();
+
+// — render experience entries + timeline track —
+(function renderExperiences() {
+  const list = document.getElementById("entries");
+  const bar  = document.getElementById("timeline-bar");
+  CONTENT.experiences.forEach((e, i) => {
+    // entry
+    const el = document.createElement("article");
+    el.className = "entry reveal";
+    el.dataset.delay = Math.min(i, 4);
+    el.innerHTML = `
+      <div class="entry-meta">
+        <span class="entry-marker">${e.marker}</span>
+        <span class="date">${e.date}</span>
+        <span class="duration">${e.duration}</span>
+      </div>
+      <div class="entry-body">
+        <h3 class="entry-title">${e.role}</h3>
+        <div class="entry-org">${e.org}</div>
+        <p class="entry-desc">${e.desc}</p>
+      </div>
+      <div class="entry-tags">
+        ${e.tags.map(t => `<span class="entry-tag">${t}</span>`).join("")}
+      </div>
+    `;
+    list.appendChild(el);
+
+    // timeline segment
+    const seg = document.createElement("div");
+    seg.className = "timeline-segment" + (e.future ? " future" : "");
+    seg.dataset.year = e.year;
+    bar.appendChild(seg);
+  });
+})();
+
+// — render work cards —
+(function renderWork() {
+  const grid = document.getElementById("work-grid");
+  CONTENT.work.forEach((w, i) => {
+    const el = document.createElement("article");
+    el.className = "work-card reveal" + (w.size === "feature" ? " feature" : w.size === "wide" ? " wide" : "");
+    el.dataset.kind = w.kind;
+    el.dataset.delay = Math.min(i, 4);
+
+    const links = [];
+    if (w.githubUrl) links.push(`<a href="${w.githubUrl}" target="_blank" rel="noopener">↗ GitHub</a>`);
+    if (w.readUrl)   links.push(`<a href="${w.readUrl}">→ Read</a>`);
+
+    const visual = w.size === "feature"
+      ? `<div class="card-visual"></div>`
+      : "";
+
+    el.innerHTML = `
+      <div class="card-head">
+        <div class="card-id"><span class="kind">${w.kind.toUpperCase()}</span> · ${w.id}</div>
+        <div class="card-date">${w.date}</div>
+      </div>
+      ${visual}
+      <h3 class="card-title">${w.title}</h3>
+      <p class="card-excerpt">${w.excerpt}</p>
+      <div class="card-foot">
+        <div class="card-tags">
+          ${w.tags.map(t => `<span class="card-tag">${t}</span>`).join("")}
+        </div>
+        <div class="card-links">
+          ${links.join("")}
+          <span class="card-arrow">↗</span>
+        </div>
+      </div>
+    `;
+    grid.appendChild(el);
+  });
+})();
+
+// — work filters —
+(function setupFilters() {
+  const btns = document.querySelectorAll("#work-filters .filter-btn");
+  const cards = document.querySelectorAll("#work-grid .work-card");
+  btns.forEach(b => b.addEventListener("click", () => {
+    btns.forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    const f = b.dataset.filter;
+    cards.forEach(c => {
+      c.style.display = (f === "all" || c.dataset.kind === f) ? "" : "none";
+    });
+  }));
+})();
+
+// — reveal-on-scroll —
+(function setupReveals() {
+  const els = document.querySelectorAll(".reveal");
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        en.target.classList.add("in");
+        io.unobserve(en.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -60px 0px" });
+  els.forEach(el => io.observe(el));
+})();
+
+// — progress dots —
+(function setupProgress() {
+  const dots = document.querySelectorAll(".progress-dot");
+  const sections = Array.from(dots).map(d => document.getElementById(d.dataset.target));
+  function update() {
+    const y = window.scrollY + window.innerHeight * 0.35;
+    let active = 0;
+    sections.forEach((s, i) => { if (s && s.offsetTop <= y) active = i; });
+    dots.forEach((d, i) => d.classList.toggle("active", i === active));
+  }
+  window.addEventListener("scroll", update, { passive: true });
+  update();
+})();
+
+/* ============================================================
+   ▼ THE SIGNATURE INTERACTION
+   Scroll-driven canvas — single-cell point cloud that morphs
+   through five "stages" as you traverse the page.
+   Stages:
+     0 — hero        : drifting nebula
+     1 — about       : loose UMAP clusters
+     2 — experience  : timeline alignment (horizontal flow)
+     3 — work        : grid lattice
+     4 — contact     : converging beam
+   ============================================================ */
+(function setupCanvas() {
+  const canvas = document.getElementById("bg-canvas");
+  const ctx = canvas.getContext("2d");
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let W, H;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth = window.innerWidth;
+    H = canvas.clientHeight = window.innerHeight;
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // colour palette (matches CSS accents)
+  const palette = [
+    [181, 58, 36],    // accent red
+    [122, 30, 14],    // accent deep
+    [74, 93, 58],     // moss
+    [24, 21, 19],     // ink
+    [216, 128, 109],  // accent soft
+    [138, 129, 116],  // ink faint
+  ];
+
+  // generate N points with multiple target configurations
+  const N = Math.max(140, Math.min(260, Math.floor(W * H / 8500)));
+
+  // helper random
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  // build per-stage target positions in normalised [0..1] space
+  function buildStages() {
+    const stages = [];
+
+    // 0 — drifting nebula: random across viewport
+    stages.push(Array.from({ length: N }, () => ({
+      x: rand(0, 1),
+      y: rand(0, 1),
+      r: rand(1.2, 3.4),
+      a: rand(0.35, 0.7),
+    })));
+
+    // 1 — UMAP clusters: 5 cluster centres, gaussian around each
+    const centres = [
+      [0.22, 0.30], [0.68, 0.22], [0.45, 0.55], [0.78, 0.70], [0.18, 0.78],
+    ];
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const c = centres[i % centres.length];
+      const gx = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
+      const gy = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
+      return {
+        x: Math.max(0.02, Math.min(0.98, c[0] + gx * 0.14)),
+        y: Math.max(0.02, Math.min(0.98, c[1] + gy * 0.14)),
+        r: rand(1.4, 3),
+        a: rand(0.5, 0.85),
+      };
+    }));
+
+    // 2 — timeline alignment: horizontal bands like sequencing reads stacked
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const band = i % 6;
+      return {
+        x: rand(0.05, 0.95),
+        y: 0.25 + band * 0.085 + rand(-0.02, 0.02),
+        r: rand(1.2, 2.6),
+        a: rand(0.45, 0.8),
+      };
+    }));
+
+    // 3 — grid lattice: snap to a soft grid
+    const cols = 14, rows = 8;
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const c = i % cols, r = Math.floor(i / cols) % rows;
+      return {
+        x: 0.06 + (c / (cols - 1)) * 0.88 + rand(-0.012, 0.012),
+        y: 0.12 + (r / (rows - 1)) * 0.76 + rand(-0.012, 0.012),
+        r: rand(1.4, 2.6),
+        a: rand(0.4, 0.7),
+      };
+    }));
+
+    // 4 — converging beam: toward bottom-right "outbound" point
+    stages.push(Array.from({ length: N }, (_, i) => {
+      const t = i / N;
+      const cx = 0.5, cy = 0.5;
+      const angle = Math.PI * 1.25 + (t - 0.5) * 0.6;
+      const dist = 0.05 + Math.pow(1 - t, 1.4) * 0.6;
+      return {
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
+        r: rand(1.2, 2.6),
+        a: rand(0.45, 0.8),
+      };
+    }));
+
+    return stages;
+  }
+
+  let STAGES = buildStages();
+  window.addEventListener("resize", () => { STAGES = buildStages(); });
+
+  // points carry current animated state + colour index
+  const points = Array.from({ length: N }, (_, i) => ({
+    x: STAGES[0][i].x,
+    y: STAGES[0][i].y,
+    r: STAGES[0][i].r,
+    a: STAGES[0][i].a,
+    vx: rand(-0.0002, 0.0002),
+    vy: rand(-0.0002, 0.0002),
+    ci: i % palette.length,
+    phase: Math.random() * Math.PI * 2,
+  }));
+
+  // smooth scroll progress [0..1]
+  let progressTarget = 0;
+  let progress = 0;
+  function updateProgress() {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progressTarget = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+  }
+  window.addEventListener("scroll", updateProgress, { passive: true });
+  updateProgress();
+
+  // easing
+  const ease = (t) => t * t * (3 - 2 * t);
+
+  function getTarget(i, p) {
+    const stages = STAGES.length;
+    const seg = p * (stages - 1);
+    const idx = Math.floor(seg);
+    const frac = ease(seg - idx);
+    const a = stages[Math.min(idx, stages - 1)] || STAGES[Math.min(idx, stages - 1)];
+    const b = stages[Math.min(idx + 1, stages - 1)] || STAGES[Math.min(idx + 1, stages - 1)];
+    // (using STAGES, not "stages" var — sorry, naming clash. Fix:)
+    return {};
+  }
+
+  // draw loop
+  let t = 0;
+  function draw() {
+    t += 1;
+    // lerp progress
+    progress += (progressTarget - progress) * 0.06;
+    const seg = progress * (STAGES.length - 1);
+    const idx = Math.min(Math.floor(seg), STAGES.length - 2);
+    const frac = ease(seg - idx);
+
+    // clear
+    ctx.clearRect(0, 0, W, H);
+
+    // optional: subtle connecting lines within the same stage (UMAP cluster vibe)
+    // — kept off for performance; can enable here:
+    // ctx.strokeStyle = "rgba(24,21,19,0.04)";
+    // for (let i = 0; i < points.length; i++) { ... }
+
+    for (let i = 0; i < points.length; i++) {
+      const A = STAGES[idx][i];
+      const B = STAGES[idx + 1][i];
+      const tx = A.x + (B.x - A.x) * frac;
+      const ty = A.y + (B.y - A.y) * frac;
+      const tr = A.r + (B.r - A.r) * frac;
+      const ta = A.a + (B.a - A.a) * frac;
+
+      const p = points[i];
+
+      // ambient drift (so it breathes even when scroll idle)
+      const drift = 0.0024;
+      const driftX = Math.sin(t * 0.003 + p.phase) * drift;
+      const driftY = Math.cos(t * 0.0026 + p.phase * 1.3) * drift;
+
+      // smooth move toward target
+      p.x += ((tx + driftX) - p.x) * 0.04;
+      p.y += ((ty + driftY) - p.y) * 0.04;
+      p.r += (tr - p.r) * 0.05;
+      p.a += (ta - p.a) * 0.05;
+
+      const px = p.x * W;
+      const py = p.y * H;
+      const col = palette[p.ci];
+
+      // glow
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${p.a * 0.15})`;
+      ctx.arc(px, py, p.r * 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // core
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${p.a})`;
+      ctx.arc(px, py, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    draw();
+  } else {
+    // static render for reduced-motion users
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const col = palette[p.ci];
+      ctx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${p.a * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+})();
+</script>
+
+</body>
+</html>
