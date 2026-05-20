@@ -10,7 +10,7 @@ excerpt:     "Five data modalities — clinical, transcriptomic, methylation, mu
 tags:        ["honours", "HCC", "multi-modal", "scikit-learn"]
 githubUrl:   "https://github.com/jasn9776"
 draft:       false
-coverImage:   ./diagram.jpg
+coverImage:   ./diagram.png
 ---
 
 ## Overview
