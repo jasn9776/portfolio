@@ -1085,8 +1085,7 @@ section {
 }
 .post-cover {
   width: 100%;
-  aspect-ratio: 16 / 6;
-  object-fit: cover;
+  height: auto;
   border: 1px solid var(--rule-strong);
   display: block;
   filter: contrast(1.05) saturate(.9);
